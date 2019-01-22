@@ -6,10 +6,12 @@ class CameraVideoStream:
 		# initialize the video camera stream and read the first frame
 		# from the stream
 		self.stream = cv2.VideoCapture(device_number)
-		self.stream.set(3,1280);
-		self.stream.set(4,720);
-		(self.grabbed, self.frame) = self.stream.read()
-
+		self.stream.set(3,320);
+		self.stream.set(4,240);
+		self.grabbed, self.smallFrame = self.stream.read()
+		#self.frame = None
+		#if self.grabbed:
+		#	self.frame = cv2.resize(self.smallFrame, (0, 0), fx=2, fy=2)
 		# initialize the variable used to indicate if the thread should
 		# be stopped
 		self.stopped = False
@@ -27,11 +29,13 @@ class CameraVideoStream:
 				return
  
 			# otherwise, read the next frame from the stream
-			(self.grabbed, self.frame) = self.stream.read()
+			self.grabbed, self.smallFrame = self.stream.read()
+			#if self.grabbed:
+			#	self.frame = cv2.resize(self.smallFrame, (0, 0), fx=2, fy=2)
 
 	def read(self):
 		# return the frame most recently read
-		return self.frame
+		return self.smallFrame
  
 	def stop(self):
 		# indicate that the thread should be stopped

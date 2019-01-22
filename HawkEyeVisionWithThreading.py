@@ -17,6 +17,9 @@ from FrameReader import CameraVideoStream
 
 from threading import Thread
 
+xFactor = 4
+yFactor = 3
+
 def init():
 	distortion_correction_file = Path("./distortion_correction_pickle.p")
 	# check if we already created the calibration file with coefficients
@@ -27,14 +30,24 @@ def init():
 			mtx, dist = calibration_file['mtx'], calibration_file['dist']
 	else:
 		print('Calibration does not exist. Please run the cell above to create it first.')
+	print(mtx)
+	#fx
+	mtx[0,0] = mtx[0,0] / xFactor
+	#cx
+	mtx[0,2] = mtx[0,2] / xFactor
+	#fy
+	mtx[1,1] = mtx[1,1] / yFactor
+	#cy
+	mtx[1,2] = mtx[1,2] / yFactor
+	print(mtx)	
 	return mtx, dist
 
 
 def warp(frame):
 	undistorted_img = cv2.undistort(frame, mtx, dist, None, mtx)
-	corners = [(619,392), (617,427), (663, 427),(660, 392)]
+	corners = [(619 / xFactor,392 / yFactor), (617 / xFactor,427 / yFactor), (663 / xFactor, 427 / yFactor),(660 / xFactor, 392 / yFactor)]
 	src = np.float32([corners[0], corners[1], corners[2], corners[3]])
-	dst = np.float32([[624,378],[622.75, 413.5],[657.25, 413.5],[656, 378]])
+	dst = np.float32([[624 / xFactor,378 / yFactor],[622.75 / xFactor, 413.5 / yFactor],[657.25 / xFactor, 413.5 / yFactor],[656 / xFactor, 378 / yFactor]])
 
 	def perspective_warp(img):
     	# Grab the image shape
@@ -69,31 +82,130 @@ def displayFrames():
 		cv2.resizeWindow(windowName,1280,720)
 		cv2.moveWindow(windowName,0,0)
 		cv2.setWindowTitle(windowName,"Hawk Eye Vision")
-		frameReader = CameraVideoStream(device_number=1).start()
-		frameReader2 = CameraVideoStream(device_number=2).start()
+		frameReader = CameraVideoStream(device_number=0).start()
+		print("1")
+		frameReader2 = CameraVideoStream(device_number=1).start()
+		print("2")
+		frameReader3 = CameraVideoStream(device_number=2).start()
+		print("3")
+		frameReader4 = CameraVideoStream(device_number=3).start()
+		print("4")
+		frame = frameReader.read()
+		warped = warp(frame)
+		warped = cv2.cvtColor(warped, cv2.COLOR_BGR2RGB)
+
+		#frameRs = cv2.resize(frame, (1920,1080))
+		warpedRs = cv2.resize(warped,(1920,1080))
+		#vidBuf = np.concatenate((frameRs, warpedRs), axis=1)
+
+		frame2 = frameReader2.read()
+		warped2 = warp(frame2)
+		warped2 = cv2.cvtColor(warped2, cv2.COLOR_BGR2RGB)
+
+		#frameRs2 = cv2.resize(frame2, (1920,1080))
+		warpedRs2 = cv2.resize(warped2,(1920,1080))
+
+		frame3 = frameReader3.read()
+		warped3 = warp(frame3)
+		warped3 = cv2.cvtColor(warped3, cv2.COLOR_BGR2RGB)
+
+		#frameRs = cv2.resize(frame, (1920,1080))
+		warpedRs3 = cv2.resize(warped3,(1920,1080))
+		#vidBuf = np.concatenate((frameRs, warpedRs), axis=1)
+
+		frame4 = frameReader4.read()
+		warped4 = warp(frame4)
+		warped4 = cv2.cvtColor(warped4, cv2.COLOR_BGR2RGB)
+
+		#frameRs2 = cv2.resize(frame2, (1920,1080))
+		warpedRs4 = cv2.resize(warped4,(1920,1080))
+
+		vidBuf = np.concatenate((warpedRs, warpedRs2), axis=1)
+		vidBuf2 = np.concatenate((warpedRs3, warpedRs4), axis=1)
+		vidBuf = np.concatenate((vidBuf, vidBuf2), axis=0)
+
+		def processCam1(frameIn):
+			warped = warp(frameIn)
+			warped = cv2.cvtColor(warped, cv2.COLOR_BGR2RGB)
+
+			#frameRs=cv2.resize(frameIn, (1920,1080))
+			nonlocal warpedRs
+			warpedRs=cv2.resize(warped,(1920,1080))
+			#nonlocal vidBuf
+			#vidBuf = np.concatenate((frameRs, warpedRs), axis=1)
+
+		def processCam2(frameIn):
+			warped2 = warp(frameIn)
+			warped2 = cv2.cvtColor(warped2, cv2.COLOR_BGR2RGB)
+
+			#frameRs2=cv2.resize(frameIn, (1920,1080))
+			nonlocal warpedRs2
+			warpedRs2=cv2.resize(warped2,(1920,1080))
+			#nonlocal vidBuf2
+			#vidBuf2 = np.concatenate((frameRs, warpedRs), axis=1)
+
+		def processCam3(frameIn):
+			warped3 = warp(frameIn)
+			warped3 = cv2.cvtColor(warped3, cv2.COLOR_BGR2RGB)
+
+			#frameRs2=cv2.resize(frameIn, (1920,1080))
+			nonlocal warpedRs3
+			warpedRs3=cv2.resize(warped3,(1920,1080))
+			#nonlocal vidBuf2
+			#vidBuf2 = np.concatenate((frameRs, warpedRs), axis=1)
+
+		def processCam4(frameIn):
+			warped4 = warp(frameIn)
+			warped4 = cv2.cvtColor(warped4, cv2.COLOR_BGR2RGB)
+
+			#frameRs2=cv2.resize(frameIn, (1920,1080))
+			nonlocal warpedRs4
+			warpedRs4=cv2.resize(warped4,(1920,1080))
+			#nonlocal vidBuf2
+			#vidBuf2 = np.concatenate((frameRs, warpedRs), axis=1)
+
+		def concatenateFrames():
+			nonlocal vidBuf
+			nonlocal vidBuf2
+			nonlocal warpedRs, warpedRs2, warpedRs3, warpedRs4
+			vidBuf = np.concatenate((warpedRs, warpedRs2), axis=1)
+			vidBuf2 = np.concatenate((warpedRs3, warpedRs4), axis=1)
+			vidBuf = np.concatenate((vidBuf, vidBuf2), axis=0)
+
 
 		while True:
 			if cv2.getWindowProperty(windowName, 0) < 0: # Check to see if the user closed the window
         	# This will fail if the user closed the window; Nasties get printed to the console
 				break;
 
-			frame = frameReader.read()
-			warped = warp(frame)
-			warped = cv2.cvtColor(warped, cv2.COLOR_BGR2RGB)
+			# frame = frameReader.read()
+			# warped = warp(frame)
+			# warped = cv2.cvtColor(warped, cv2.COLOR_BGR2RGB)
 
-			frameRs=cv2.resize(frame, (1920,1080))
-			warpedRs=cv2.resize(warped,(1920,1080))
-			vidBuf = np.concatenate((frameRs, warpedRs), axis=1)
+			# frameRs=cv2.resize(frame, (1920,1080))
+			# warpedRs=cv2.resize(warped,(1920,1080))
+			# vidBuf = np.concatenate((frameRs, warpedRs), axis=1)
+			#vidBuf = processFrame(frameReader.read())
+			Thread(target=processCam1(frameReader.read()))
+			Thread(target=processCam2(frameReader2.read()))
+			Thread(target=processCam3(frameReader3.read()))
+			Thread(target=processCam4(frameReader4.read()))
+			
+			# vidBuf = np.concatenate((warpedRs, warpedRs2), axis=1)
+			# vidBuf2 = np.concatenate((warpedRs3, warpedRs4), axis=1)
+			# vidBuf = np.concatenate((vidBuf, vidBuf2), axis=0)
 
-			frame2 = frameReader2.read()
-			warped2 = warp(frame2)
-			warped2 = cv2.cvtColor(warped2, cv2.COLOR_BGR2RGB)
+			# frame2 = frameReader2.read()
+			# warped2 = warp(frame2)
+			# warped2 = cv2.cvtColor(warped2, cv2.COLOR_BGR2RGB)
 
-			frameRs2=cv2.resize(frame2, (1920,1080))
-			warpedRs2=cv2.resize(warped2,(1920,1080))
-			vidBuf2 = np.concatenate((frameRs2, warpedRs2), axis=1)
+			# frameRs2=cv2.resize(frame2, (1920,1080))
+			# warpedRs2=cv2.resize(warped2,(1920,1080))
+			# vidBuf2 = np.concatenate((frameRs2, warpedRs2), axis=1)
 
-			vidBuf = np.concatenate((vidBuf, vidBuf2), axis=0)
+			Thread(target=concatenateFrames())
+
+			# vidBuf = np.concatenate((vidBuf, vidBuf2), axis=0)
 
 			Thread(target=cv2.imshow(windowName, vidBuf))
 
@@ -101,6 +213,8 @@ def displayFrames():
 			if key == 27: # Check for ESC key
 				frameReader.stop()
 				frameReader2.stop()
+				frameReader3.stop()
+				frameReader4.stop()
 				cv2.destroyAllWindows()
 				break ;
 
