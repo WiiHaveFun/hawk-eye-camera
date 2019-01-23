@@ -120,11 +120,61 @@ def displayFrames():
 		#frameRs2 = cv2.resize(frame2, (1920,1080))
 		warpedRs4 = cv2.resize(warped4,(1920,1080))
 
+		# create blank image
+		canvas_height = 800
+		canvas_width = 800
+		blank_image = np.zeros((canvas_height, canvas_width, 3), np.uint8)
+		
+		# rotate frames
+		def rotate_bound(image, angle):
+			# grab the dimensions of the image and then determine the center
+			(h, w) = image.shape[:2]
+			(cX, cY) = (w // 2, h // 2)
+			
+			M = cv2.getRotationMatrix2D((cX, cY), angle, 1.0)
+			cos = np.abs(M[0, 0])
+			sin = np.abs(M[0, 1])
+
+			nW = int((h * sin) + (w * cos))
+			nH = int((h * cos) + (w * sin))
+
+			M[0, 2] += (nW / 2) - cX
+			M[1, 2] += (nH / 2) - cY
+			
+			return cv2.warpAffine(image, M, (nW, nH))
+
+		warped2_rotated90 = rotate_bound(warped2, 90)
+		warped3_rotated180 = rotate_bound(warped3, 180)
+		warped4_rotated270 = rotate_bound(warped4, 270)
+
+		width = warped.shape[1]
+		x_offset = (canvas_width - width) // 2
+		y_offset = 0
+		blank_image[y_offset:y_offset + warped.shape[0], x_offset:x_offset + warped.shape[1]] = warped
+		
+		rotated_height = warped2_rotated90.shape[0]
+		x_offset = 0
+		y_offset = (canvas_height - rotated_height) // 2
+		blank_image[y_offset:y_offset + warped2_rotated90.shape[0], x_offset:x_offset + warped2_rotated90.shape[1]] = warped2_rotated90
+
+		rotated270_width = warped4_rotated270.shape[1]
+		x270_offset = canvas_width - rotated270_width
+		y270_offset = y_offset
+		blank_image[y270_offset:y270_offset + warped4_rotated270.shape[0], x270_offset:x270_offset + warped4_rotated270.shape[1]] = warped4_rotated270
+
+		rotated_height = warped3_rotated180.shape[0]
+		rotated_width = warped3_rotated180.shape[1]
+		x_offset = (canvas_width - rotated_width) // 2
+		y_offset = (canvas_height - rotated_height)
+		blank_image[y_offset:y_offset + warped3_rotated180.shape[0], x_offset:x_offset + warped3_rotated180.shape[1]] = warped3_rotated180
+
 		vidBuf = np.concatenate((warpedRs, warpedRs2), axis=1)
 		vidBuf2 = np.concatenate((warpedRs3, warpedRs4), axis=1)
 		vidBuf = np.concatenate((vidBuf, vidBuf2), axis=0)
 
+		#cv2.imshow("composite", blank_image)
 		def processCam1(frameIn):
+			nonlocal warped
 			warped = warp(frameIn)
 			warped = cv2.cvtColor(warped, cv2.COLOR_BGR2RGB)
 
@@ -135,6 +185,7 @@ def displayFrames():
 			#vidBuf = np.concatenate((frameRs, warpedRs), axis=1)
 
 		def processCam2(frameIn):
+			nonlocal warped2
 			warped2 = warp(frameIn)
 			warped2 = cv2.cvtColor(warped2, cv2.COLOR_BGR2RGB)
 
@@ -145,6 +196,7 @@ def displayFrames():
 			#vidBuf2 = np.concatenate((frameRs, warpedRs), axis=1)
 
 		def processCam3(frameIn):
+			nonlocal warped3
 			warped3 = warp(frameIn)
 			warped3 = cv2.cvtColor(warped3, cv2.COLOR_BGR2RGB)
 
@@ -155,6 +207,7 @@ def displayFrames():
 			#vidBuf2 = np.concatenate((frameRs, warpedRs), axis=1)
 
 		def processCam4(frameIn):
+			nonlocal warped4
 			warped4 = warp(frameIn)
 			warped4 = cv2.cvtColor(warped4, cv2.COLOR_BGR2RGB)
 
@@ -172,6 +225,32 @@ def displayFrames():
 			vidBuf2 = np.concatenate((warpedRs3, warpedRs4), axis=1)
 			vidBuf = np.concatenate((vidBuf, vidBuf2), axis=0)
 
+		def mergeFrames():
+			nonlocal warped, warped2, warped3, warped4, blank_image
+			warped2_rotated90 = rotate_bound(warped2, 90)
+			warped3_rotated180 = rotate_bound(warped3, 180)
+			warped4_rotated270 = rotate_bound(warped4, 270)
+
+			width = warped.shape[1]
+			x_offset = (canvas_width - width) // 2
+			y_offset = 0
+			blank_image[y_offset:y_offset + warped.shape[0], x_offset:x_offset + warped.shape[1]] = warped
+		
+			rotated_height = warped2_rotated90.shape[0]
+			x_offset = 0
+			y_offset = (canvas_height - rotated_height) // 2
+			blank_image[y_offset:y_offset + warped2_rotated90.shape[0], x_offset:x_offset + warped2_rotated90.shape[1]] = warped2_rotated90
+
+			rotated270_width = warped4_rotated270.shape[1]
+			x270_offset = canvas_width - rotated270_width
+			y270_offset = y_offset
+			blank_image[y270_offset:y270_offset + warped4_rotated270.shape[0], x270_offset:x270_offset + warped4_rotated270.shape[1]] = warped4_rotated270
+
+			rotated_height = warped3_rotated180.shape[0]
+			rotated_width = warped3_rotated180.shape[1]
+			x_offset = (canvas_width - rotated_width) // 2
+			y_offset = (canvas_height - rotated_height)
+			blank_image[y_offset:y_offset + warped3_rotated180.shape[0], x_offset:x_offset + warped3_rotated180.shape[1]] = warped3_rotated180
 
 		while True:
 			if cv2.getWindowProperty(windowName, 0) < 0: # Check to see if the user closed the window
@@ -204,10 +283,12 @@ def displayFrames():
 			# vidBuf2 = np.concatenate((frameRs2, warpedRs2), axis=1)
 
 			Thread(target=concatenateFrames())
+			Thread(target=mergeFrames())
 
 			# vidBuf = np.concatenate((vidBuf, vidBuf2), axis=0)
 
 			Thread(target=cv2.imshow(windowName, vidBuf))
+			Thread(target=cv2.imshow("composite", blank_image))
 
 			key=cv2.waitKey(1)
 			if key == 27: # Check for ESC key
