@@ -37,6 +37,7 @@ mtx[1,2] = mtx[1,2] / yFactor
 print(mtx)
 
 objectPoints = np.array([[-7.316,-5.324,0], [-5.936,0,0], [5.936,0,0], [7.316,-5.324,0]])
+trihedron = np.array([[0,-2.754,0],[2,-2.754,0],[0,-0.754,0],[0,-2.754,2]])
 
 #Class to examine Frames per second of camera stream. Currently not used.
 class FPS:
@@ -108,7 +109,7 @@ def getEllipseRotation(image, cnt):
         # Maps rotation to (-90 to 90). Makes it easier to tell direction of slant
         rotation = translateRotation(rotation, widthE, heightE)
 
-        cv2.ellipse(image, ellipse, (23, 184, 80), 3)
+        #cv2.ellipse(image, ellipse, (23, 184, 80), 3)
         return rotation
     except:
         # Gets rotated bounding rectangle of contour
@@ -224,13 +225,27 @@ def findTape(contours, image, centerX, centerY):
                     rx, ry, rw, rh = cv2.boundingRect(cnt)
                     boundingRect = cv2.boundingRect(cnt)
                     # Draws countour of bounding rectangle and enclosing circle in green
-                    cv2.rectangle(image, (rx, ry), (rx + rw, ry + rh), (23, 184, 80), 1)
+                    #cv2.rectangle(image, (rx, ry), (rx + rw, ry + rh), (23, 184, 80), 1)
 
-                    cv2.circle(image, center, radius, (23, 184, 80), 1)
+                    #cv2.circle(image, center, radius, (23, 184, 80), 1)
+
+                    approx = cv2.approxPolyDP(cnt,0.052*cv2.arcLength(cnt,True),True)
+                    #print len(approx)
+                    if len(approx)==4:
+                        #print ("target detected")
+                        #print(approx)
+                        p1 = approx[0][0]
+                        p2 = approx[1][0]
+                        p3 = approx[2][0]
+                        p4 = approx[3][0]
+                        cv2.line(blur, (p1[0],p1[1]), (p2[0],p2[1]), (255,255,255), 2)
+                        cv2.line(blur, (p2[0],p2[1]), (p3[0],p3[1]), (255,0,0), 2)
+                        cv2.line(blur, (p3[0],p3[1]), (p4[0],p4[1]), (255,0,0), 2)
+                        cv2.line(blur, (p4[0],p4[1]), (p1[0],p1[1]), (255,0,0), 2)
 
                     # Appends important info to array
                     if [cx, cy, rotation, cnt] not in biggestCnts:
-                         biggestCnts.append([cx, cy, rotation, cnt, box])
+                         biggestCnts.append([cx, cy, rotation, cnt, box, approx])
 
 
         # Sorts array based on coordinates (leftmost to rightmost) to make sure contours are adjacent
@@ -251,6 +266,10 @@ def findTape(contours, image, centerX, centerY):
             #box of contours
             box1 = biggestCnts[i][4]
             box2 = biggestCnts[i + 1][4]
+
+            #poly of contours
+            target1 = biggestCnts[i][5]
+            target2 = biggestCnts[i + 1][5]
             # If contour angles are opposite
             if (np.sign(tilt1) != np.sign(tilt2)):
                 centerOfTarget = math.floor((cx1 + cx2) / 2)
@@ -269,7 +288,7 @@ def findTape(contours, image, centerX, centerY):
                 yawToTarget = calculateYaw(centerOfTarget, centerX, H_FOCAL_LENGTH)
                 #Make sure no duplicates, then append
                 if [centerOfTarget, yawToTarget] not in targets:
-                    targets.append([centerOfTarget, yawToTarget, box1, box2])
+                    targets.append([centerOfTarget, yawToTarget, box1, box2, target1, target2])
     #Check if there are targets seen
     if (len(targets) > 0):
         # pushes that it sees vision target to network tables
@@ -286,16 +305,58 @@ def findTape(contours, image, centerX, centerY):
         currentAngleError = finalTarget[1]
         finalBox1 = finalTarget[2]
         finalBox2 = finalTarget[3]
-        corners = np.array([finalBox1[1], finalBox1[2], finalBox2[2], finalBox2[3]], dtype=np.float32)
+
+        # a more accurate outline of the target, sorted from smallest to greatest x value (left to right)
+        finalPoly1 = finalTarget[4]
+        finalPoly2 = finalTarget[5]
+        finalPoly1_SortedY = sorted(finalPoly1, key=lambda k: [k[0][1]])
+        finalPoly1Top = finalPoly1_SortedY[0]
+        finalPoly2_SortedY = sorted(finalPoly2, key=lambda k: [k[0][1]])
+        finalPoly2Top = finalPoly2_SortedY[0]
+        
+        finalPoly1_SortedX = sorted(finalPoly1, key=lambda k: [k[0][0]])
+        finalPoly1Outside = finalPoly1_SortedX[0]
+        finalPoly2_SortedX = sorted(finalPoly2, key=lambda k: [k[0][0]], reverse=True)
+        finalPoly2Outside = finalPoly2_SortedX[0]
+        #print("unsorted", finalPoly1)
+        #print("sorted", finalPoly1_Sorted)
+        #print("unsorted 2", finalPoly2)
+        #print("sorted 2", finalPoly2_Sorted)
+        #corners = np.array([finalBox1[1], finalBox1[2], finalBox2[2], finalBox2[3]], dtype=np.float32)
+        corners = np.array([finalPoly1Outside, finalPoly1Top, finalPoly2Top, finalPoly2Outside], dtype=np.float32)
         # pushes vision target angle to network tables
-        print("tapeYaw: ", currentAngleError)
-        print("box 1: ", finalBox1)
-        print("box 2: ", finalBox2)
+        #print("tapeYaw: ", currentAngleError)
+        #print("box 1: ", finalBox1)
+        #print("box 2: ", finalBox2)
         print("corners: ", corners)
         retval, rvec, tvec = cv2.solvePnP(objectPoints, corners, mtx, dist, cv2.SOLVEPNP_P3P)
-        print(retval)
-        print("rvec: ", rvec)
-        print("tvec: ", tvec)
+        #points for trihedron
+        trihedronPoints, _ = cv2.projectPoints(trihedron, rvec, tvec, mtx, dist)
+        #draw trihedron
+        #prevents out-of-bounds integers
+        if ((trihedronPoints[0][0][0] <= 10000) and (trihedronPoints[0][0][0] >= -10000)) and ((trihedronPoints[0][0][1] <= 10000) and (trihedronPoints[0][0][1] >= -10000)) and ((trihedronPoints[1][0][0] <= 10000) and (trihedronPoints[1][0][0] >= -10000)) and ((trihedronPoints[1][0][1] <= 10000) and (trihedronPoints[1][0][1] >= -10000)) and ((trihedronPoints[2][0][0] <= 10000) and (trihedronPoints[2][0][0] >= -10000)) and ((trihedronPoints[2][0][1] <= 10000) and (trihedronPoints[2][0][1] >= -10000)) and ((trihedronPoints[3][0][0] <= 10000) and (trihedronPoints[3][0][0] >= -10000)) and ((trihedronPoints[3][0][1] <= 10000) and (trihedronPoints[3][0][1] >= -10000)):
+            cv2.line(image, (int(trihedronPoints[0][0][0]), int(trihedronPoints[0][0][1])), (int(trihedronPoints[1][0][0]), int(trihedronPoints[1][0][1])), (255,0,0), 3)
+            cv2.line(image, (int(trihedronPoints[0][0][0]), int(trihedronPoints[0][0][1])), (int(trihedronPoints[2][0][0]), int(trihedronPoints[2][0][1])), (0,255,0), 3)
+            cv2.line(image, (int(trihedronPoints[0][0][0]), int(trihedronPoints[0][0][1])), (int(trihedronPoints[3][0][0]), int(trihedronPoints[3][0][1])), (0,0,255), 3)
+        #print(retval)
+        rvec[0] = math.degrees(rvec[0])
+        rvec[1] = math.degrees(rvec[1])
+        rvec[2] = math.degrees(rvec[2])
+        #print("rvec: ", rvec)
+        #print("tvec: ", tvec)
+        cv2.putText(image, "rvec x: " + str(int(rvec[0][0])), (40, 70), cv2.FONT_HERSHEY_COMPLEX, .6,
+                    (0, 255, 0))
+        cv2.putText(image, "rvec y: " + str(int(rvec[1][0])), (40, 90), cv2.FONT_HERSHEY_COMPLEX, .6,
+                    (0, 255, 0))
+        cv2.putText(image, "rvec z: " + str(int(rvec[2][0])), (40, 110), cv2.FONT_HERSHEY_COMPLEX, .6,
+                    (0, 255, 0))
+
+        cv2.putText(image, "tvec x: " + str(int(tvec[0][0])), (40, 140), cv2.FONT_HERSHEY_COMPLEX, .6,
+                    (0, 255, 0))
+        cv2.putText(image, "tvec y: " + str(int(tvec[1][0])), (40, 160), cv2.FONT_HERSHEY_COMPLEX, .6,
+                    (0, 255, 0))
+        cv2.putText(image, "tvec z: " + str(int(tvec[2][0])), (40, 180), cv2.FONT_HERSHEY_COMPLEX, .6,
+                    (0, 255, 0))
 	
     else:
         # pushes that it deosn't see vision target to network tables
@@ -323,26 +384,26 @@ fps = FPS().start()
 while(True):
 	# Capture frame-by-frame
 	ret, frame = cap.read()
-	blur = cv2.blur(frame,(2,2),-1)
+	blur = cv2.blur(frame,(4,4), -1)
 	hsv = cv2.cvtColor(blur, cv2.COLOR_BGR2HSV)
 	mask = cv2.inRange(hsv, np.array([60,50,40]), np.array([93,255,255]))
 	#_, contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_TC89_KCOS)
 	_, contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 	cv2.drawContours(blur, contours, -1, (0,255,0), 1)
-	for cnt in contours:
-		approx = cv2.approxPolyDP(cnt,0.052*cv2.arcLength(cnt,True),True)
+	#for cnt in contours:
+		#approx = cv2.approxPolyDP(cnt,0.052*cv2.arcLength(cnt,True),True)
 		#print len(approx)
-		if len(approx)==4:
-			print ("target detected")
-			print(approx)
-			p1 = approx[0][0]
-			p2 = approx[1][0]
-			p3 = approx[2][0]
-			p4 = approx[3][0]
-			cv2.line(blur, (p1[0],p1[1]), (p2[0],p2[1]), (255,255,255), 2)
-			cv2.line(blur, (p2[0],p2[1]), (p3[0],p3[1]), (255,0,0), 2)
-			cv2.line(blur, (p3[0],p3[1]), (p4[0],p4[1]), (255,0,0), 2)
-			cv2.line(blur, (p4[0],p4[1]), (p1[0],p1[1]), (255,0,0), 2)
+		#if len(approx)==4:
+			#print ("target detected")
+			#print(approx)
+			#p1 = approx[0][0]
+			#p2 = approx[1][0]
+			#p3 = approx[2][0]
+			#p4 = approx[3][0]
+			#cv2.line(blur, (p1[0],p1[1]), (p2[0],p2[1]), (255,255,255), 2)
+			#cv2.line(blur, (p2[0],p2[1]), (p3[0],p3[1]), (255,0,0), 2)
+			#cv2.line(blur, (p3[0],p3[1]), (p4[0],p4[1]), (255,0,0), 2)
+			#cv2.line(blur, (p4[0],p4[1]), (p1[0],p1[1]), (255,0,0), 2)
 			#cv2.polylines(blur, approx, True, (255,0,0), 3)
 	#dst = cv2.cornerHarris(mask, 2, 3, 0.04)
 	#dst = cv2.dilate(dst, None)
