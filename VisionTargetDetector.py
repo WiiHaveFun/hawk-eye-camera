@@ -1,5 +1,6 @@
 # import the necessary packages
 import datetime
+import time
 import numpy as np
 import cv2
 import math
@@ -7,13 +8,28 @@ import math
 from pathlib import Path
 import pickle
 
+from networktables import NetworkTables
+import cscore as cs
+import logging
+
 from threading import Thread
+
+startTime = time.time()
 
 mtx = None
 dist = None
 
 xFactor = 1.5
 yFactor = 1.5
+
+# init camera server and network tables
+logging.basicConfig(level=logging.DEBUG)
+ip = "10.28.34.2"
+NetworkTables.initialize(server=ip)
+sd = NetworkTables.getTable("SmartDashboard")
+
+cs = cs.CameraServer.getInstance()
+outputStream = cs.putVideo("vision", 640, 360)
 
 # calibrated for 1080p
 distortion_correction_file = Path("./distortion_correction_pickle_regular_camera.p")
@@ -25,7 +41,8 @@ if distortion_correction_file.is_file():
 		mtx, dist = calibration_file['mtx'], calibration_file['dist']
 else:
 	print('Calibration does not exist. Please run the cell above to create it first.')
-print(mtx)
+print("mtx: ", mtx)
+print("dist: ", dist)
 #fx
 mtx[0,0] = mtx[0,0] / xFactor
 #cx
@@ -36,7 +53,7 @@ mtx[1,1] = mtx[1,1] / yFactor
 mtx[1,2] = mtx[1,2] / yFactor
 print(mtx)
 
-objectPoints = np.array([[-7.316,-5.324,0], [-5.936,0,0], [5.936,0,0], [7.316,-5.324,0]])
+objectPoints = np.array([[-7.316,-5.324,0], [-5.936,0,0], [5.936,0,0], [7.316,-5.324,0], [-4,-0.5,0], [4,-0.5,0]])
 trihedron = np.array([[0,-2.754,0],[2,-2.754,0],[0,-0.754,0],[0,-2.754,2]])
 
 #Class to examine Frames per second of camera stream. Currently not used.
@@ -198,7 +215,7 @@ def findTape(contours, image, centerX, centerY):
                     # Not exactly sure
                     box = np.int0(box)
                     # Draws rotated rectangle
-                    cv2.drawContours(image, [box], 0, (23, 184, 80), 3)
+                    #cv2.drawContours(image, [box], 0, (23, 184, 80), 3)
 
 
                     # Calculates yaw of contour (horizontal position in degrees)
@@ -228,8 +245,10 @@ def findTape(contours, image, centerX, centerY):
                     #cv2.rectangle(image, (rx, ry), (rx + rw, ry + rh), (23, 184, 80), 1)
 
                     #cv2.circle(image, center, radius, (23, 184, 80), 1)
-
-                    approx = cv2.approxPolyDP(cnt,0.052*cv2.arcLength(cnt,True),True)
+                    rawHull = cv2.convexHull(cnt, clockwise=True)
+                    rawHullPeri = cv2.arcLength(rawHull, closed=True)
+                    #approx = cv2.approxPolyDP(cnt,0.052*cv2.arcLength(cnt,True),True)
+                    approx = cv2.approxPolyDP(rawHull,0.045*rawHullPeri,True)
                     #print len(approx)
                     if len(approx)==4:
                         #print ("target detected")
@@ -311,8 +330,21 @@ def findTape(contours, image, centerX, centerY):
         finalPoly2 = finalTarget[5]
         finalPoly1_SortedY = sorted(finalPoly1, key=lambda k: [k[0][1]])
         finalPoly1Top = finalPoly1_SortedY[0]
+        finalPoly1Inside = finalPoly1_SortedY[1]
+        # avoids any corner errors
+        if finalPoly1Top[0][0] > finalPoly1Inside[0][0]:
+            temp = finalPoly1Top
+            finalPoly1Top = finalPoly1Inside
+            finalPoly1Inside = temp
+        print(finalPoly1Inside)
         finalPoly2_SortedY = sorted(finalPoly2, key=lambda k: [k[0][1]])
         finalPoly2Top = finalPoly2_SortedY[0]
+        finalPoly2Inside = finalPoly2_SortedY[1]
+        if finalPoly2Top[0][0] < finalPoly2Inside[0][0]:
+            temp = finalPoly2Top
+            finalPoly2Top = finalPoly2Inside
+            finalPoly2Inside = temp
+        print(finalPoly2Inside)
         
         finalPoly1_SortedX = sorted(finalPoly1, key=lambda k: [k[0][0]])
         finalPoly1Outside = finalPoly1_SortedX[0]
@@ -323,7 +355,9 @@ def findTape(contours, image, centerX, centerY):
         #print("unsorted 2", finalPoly2)
         #print("sorted 2", finalPoly2_Sorted)
         #corners = np.array([finalBox1[1], finalBox1[2], finalBox2[2], finalBox2[3]], dtype=np.float32)
-        corners = np.array([finalPoly1Outside, finalPoly1Top, finalPoly2Top, finalPoly2Outside], dtype=np.float32)
+        corners = np.array([finalPoly1Outside, finalPoly1Top, finalPoly2Top, finalPoly2Outside, finalPoly1Inside, finalPoly2Inside], dtype=np.float32)
+        #corners = np.array([[462,189], [478,80], [616,91], [633,166]], dtype=np.float32)
+        #corners = np.array([[462,190], [478,80], [616,91], [633,167]], dtype=np.float32)
         # pushes vision target angle to network tables
         #print("tapeYaw: ", currentAngleError)
         #print("box 1: ", finalBox1)
@@ -344,19 +378,44 @@ def findTape(contours, image, centerX, centerY):
         rvec[2] = math.degrees(rvec[2])
         #print("rvec: ", rvec)
         #print("tvec: ", tvec)
-        cv2.putText(image, "rvec x: " + str(int(rvec[0][0])), (40, 70), cv2.FONT_HERSHEY_COMPLEX, .6,
+
+        #cv2.putText(image, "rvec x: " + str(int(rvec[0][0])), (40, 70), cv2.FONT_HERSHEY_COMPLEX, 2,
+                    #(0, 255, 0))
+        #cv2.putText(image, "rvec y: " + str(int(rvec[1][0])), (40, 90), cv2.FONT_HERSHEY_COMPLEX, 2,
+                    #(0, 255, 0))
+        #cv2.putText(image, "rvec z: " + str(int(rvec[2][0])), (40, 110), cv2.FONT_HERSHEY_COMPLEX, 2,
+                    #(0, 255, 0))
+
+        #cv2.putText(image, "tvec x: " + str(int(tvec[0][0])), (40, 140), cv2.FONT_HERSHEY_COMPLEX, 2,
+                    #(0, 255, 0))
+        #cv2.putText(image, "tvec y: " + str(int(tvec[1][0])), (40, 160), cv2.FONT_HERSHEY_COMPLEX, 2,
+                    #(0, 255, 0))
+        #cv2.putText(image, "tvec z: " + str(int(tvec[2][0])), (40, 180), cv2.FONT_HERSHEY_COMPLEX, 2,
+                    #(0, 255, 0))
+
+        cv2.putText(image, "tvec x: " + str(int(tvec[0][0])), (40, 90), cv2.FONT_HERSHEY_COMPLEX, 2,
                     (0, 255, 0))
-        cv2.putText(image, "rvec y: " + str(int(rvec[1][0])), (40, 90), cv2.FONT_HERSHEY_COMPLEX, .6,
+        cv2.putText(image, "tvec y: " + str(int(tvec[1][0])), (40, 150), cv2.FONT_HERSHEY_COMPLEX, 2,
                     (0, 255, 0))
-        cv2.putText(image, "rvec z: " + str(int(rvec[2][0])), (40, 110), cv2.FONT_HERSHEY_COMPLEX, .6,
+        cv2.putText(image, "tvec z: " + str(int(tvec[2][0])), (40, 210), cv2.FONT_HERSHEY_COMPLEX, 2,
                     (0, 255, 0))
 
-        cv2.putText(image, "tvec x: " + str(int(tvec[0][0])), (40, 140), cv2.FONT_HERSHEY_COMPLEX, .6,
-                    (0, 255, 0))
-        cv2.putText(image, "tvec y: " + str(int(tvec[1][0])), (40, 160), cv2.FONT_HERSHEY_COMPLEX, .6,
-                    (0, 255, 0))
-        cv2.putText(image, "tvec z: " + str(int(tvec[2][0])), (40, 180), cv2.FONT_HERSHEY_COMPLEX, .6,
-                    (0, 255, 0))
+
+        image = cv2.resize(image, (640,360))
+        outputStream.putFrame(image)
+        sd.putNumber("tvec x", int(tvec[0][0]))
+        sd.putNumber("tvec y", int(tvec[1][0]))
+        sd.putNumber("tvec z", int(tvec[2][0]))
+        currentTime = time.time()
+        currentRioTime = sd.getNumber("RioRuntime", "0")
+        #print(currentRioTime)
+        
+        delay = (currentTime - frameAquiredTime)
+        rioDelay = (currentRioTime - delay)
+        #print(rioDelay)
+        #sd.putNumber("Jetson/Pi Runtime", currentTime-startTime)
+        #sd.putNumber("Frame Processing Delay", delay)
+        sd.putNumber("Rio Frame Processing Delay", rioDelay)
 	
     else:
         # pushes that it deosn't see vision target to network tables
@@ -374,7 +433,7 @@ cap.set(4,720)
 Low_Exposure = True
 if(Low_Exposure):
 	cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
-	cap.set(cv2.CAP_PROP_EXPOSURE, 0.0001)
+	cap.set(cv2.CAP_PROP_EXPOSURE, 0.00001)
 else:
 	cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
 	cap.set(cv2.CAP_PROP_EXPOSURE, 0.1)
@@ -384,6 +443,9 @@ fps = FPS().start()
 while(True):
 	# Capture frame-by-frame
 	ret, frame = cap.read()
+	frameAquiredTime = time.time()
+	#rio_frameAquiredTime = sd.getNumber("RioRuntime", "0")
+	#print(rio_frameAquiredTime)
 	blur = cv2.blur(frame,(4,4), -1)
 	hsv = cv2.cvtColor(blur, cv2.COLOR_BGR2HSV)
 	mask = cv2.inRange(hsv, np.array([60,50,40]), np.array([93,255,255]))
@@ -414,7 +476,8 @@ while(True):
 
 	# Display the resulting frame
 
-	Thread(target=findTape(contours, blur, (image_width/2)-0.5, (image_height/2)-0.5))	
+	#Thread(target=findTape(contours, blur, (image_width/2)-0.5, (image_height/2)-0.5))	
+	findTape(contours, blur, (image_width/2)-0.5, (image_height/2)-0.5)
 
 	#mask = cv2.resize(mask, (1280,720))
 	#blur = cv2.resize(blur, (1280,720))
