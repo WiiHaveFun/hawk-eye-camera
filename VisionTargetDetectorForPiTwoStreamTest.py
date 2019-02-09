@@ -192,7 +192,7 @@ def calculatePitch(pixelY, centerY, vFocalLength):
 # Draws Contours and finds center and yaw of vision targets
 # centerX is center x coordinate of image
 # centerY is center y coordinate of image
-def findTape(contours, image, centerX, centerY):
+def findTape(contours, image, centerX, centerY, image2):
     screenHeight, screenWidth, channels = image.shape;
     #Seen vision targets (correct angle, adjacent to each other)
     targets = []
@@ -284,6 +284,10 @@ def findTape(contours, image, centerX, centerY):
                         cv2.line(blur, (p2[0],p2[1]), (p3[0],p3[1]), (255,0,0), 2)
                         cv2.line(blur, (p3[0],p3[1]), (p4[0],p4[1]), (255,0,0), 2)
                         cv2.line(blur, (p4[0],p4[1]), (p1[0],p1[1]), (255,0,0), 2)
+                        cv2.line(frame2, (p1[0],p1[1]), (p2[0],p2[1]), (255,255,255), 2)
+                        cv2.line(frame2, (p2[0],p2[1]), (p3[0],p3[1]), (255,0,0), 2)
+                        cv2.line(frame2, (p3[0],p3[1]), (p4[0],p4[1]), (255,0,0), 2)
+                        cv2.line(frame2, (p4[0],p4[1]), (p1[0],p1[1]), (255,0,0), 2)
 
                     # Appends important info to array
                     if [cx, cy, rotation, cnt] not in biggestCnts:
@@ -343,7 +347,8 @@ def findTape(contours, image, centerX, centerY):
 #        cv2.putText(image, "Yaw: " + str(finalTarget[1]), (40, 40), cv2.FONT_HERSHEY_COMPLEX, .6,
 #                    (255, 255, 255))
         cv2.line(image, (finalTarget[0], screenHeight), (finalTarget[0], 0), (255, 0, 0), 2)
-
+        cv2.line(image2, (finalTarget[0], screenHeight), (finalTarget[0], 0), (255, 0, 0), 2)
+        
         currentAngleError = finalTarget[1]
         finalBox1 = finalTarget[2]
         finalBox2 = finalTarget[3]
@@ -395,6 +400,9 @@ def findTape(contours, image, centerX, centerY):
             cv2.line(image, (int(trihedronPoints[0][0][0]), int(trihedronPoints[0][0][1])), (int(trihedronPoints[1][0][0]), int(trihedronPoints[1][0][1])), (255,0,0), 3)
             cv2.line(image, (int(trihedronPoints[0][0][0]), int(trihedronPoints[0][0][1])), (int(trihedronPoints[2][0][0]), int(trihedronPoints[2][0][1])), (0,255,0), 3)
             cv2.line(image, (int(trihedronPoints[0][0][0]), int(trihedronPoints[0][0][1])), (int(trihedronPoints[3][0][0]), int(trihedronPoints[3][0][1])), (0,0,255), 3)
+            cv2.line(image2, (int(trihedronPoints[0][0][0]), int(trihedronPoints[0][0][1])), (int(trihedronPoints[1][0][0]), int(trihedronPoints[1][0][1])), (255,0,0), 3)
+            cv2.line(image2, (int(trihedronPoints[0][0][0]), int(trihedronPoints[0][0][1])), (int(trihedronPoints[2][0][0]), int(trihedronPoints[2][0][1])), (0,255,0), 3)
+            cv2.line(image2, (int(trihedronPoints[0][0][0]), int(trihedronPoints[0][0][1])), (int(trihedronPoints[3][0][0]), int(trihedronPoints[3][0][1])), (0,0,255), 3)
         #print(retval)
         rvec[0] = math.degrees(rvec[0])
         rvec[1] = math.degrees(rvec[1])
@@ -440,6 +448,7 @@ def findTape(contours, image, centerX, centerY):
         #sd.putNumber("Frame Processing Delay", delay)
         sd.putNumber("Rio Frame Timestamp", rioDelay)
         sd.putNumber("Delay", delay)
+        sd.putBoolean("Target Status", True)
 	
     else:
         # pushes that it deosn't see vision target to network tables
@@ -448,6 +457,7 @@ def findTape(contours, image, centerX, centerY):
         sd.putNumber("tvec x", 0)
         sd.putNumber("tvec y", 0)
         sd.putNumber("tvec z", 0)
+        sd.putBoolean("Target Status", False)
 
     cv2.line(image, (round(centerX), screenHeight), (round(centerX), 0), (255, 255, 255), 2)
 
@@ -523,7 +533,7 @@ while(True):
 	# Display the resulting frame
 
 	#Thread(target=findTape(contours, blur, (image_width/2)-0.5, (image_height/2)-0.5))	
-    findTape(contours, blur, (image_width/2)-0.5, (image_height/2)-0.5)
+    findTape(contours, blur, (image_width/2)-0.5, (image_height/2)-0.5, frame2)
     
     outputStream2.putFrame(frame2)
 
