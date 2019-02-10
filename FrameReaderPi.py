@@ -32,8 +32,9 @@ class CameraVideoStream:
                 return
  
 			# otherwise, read the next frame from the stream
-            self.grabbed, self.smallFrame = self.stream.read()
-            self.timestamp = time.time()
+            if(self.stream.isOpened()):
+                self.grabbed, self.smallFrame = self.stream.read()
+                self.timestamp = time.time()
             
 			#if self.grabbed:
 			#	self.frame = cv2.resize(self.smallFrame, (0, 0), fx=2, fy=2)
@@ -41,6 +42,9 @@ class CameraVideoStream:
     def read(self):
 		# return the frame most recently read
         return self.smallFrame, self.timestamp
+
+    def isOpened(self):
+        return self.stream.isOpened()
  
     def stop(self):
 		# indicate that the thread should be stopped

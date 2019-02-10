@@ -19,6 +19,10 @@ from threading import Thread
 
 startTime = time.time()
 
+tvecXSaved = np.array([0])
+tvecYSaved = np.array([0])
+tvecZSaved = np.array([0])
+
 # Cal for pi cam is 720p
 
 mtx = None
@@ -437,6 +441,13 @@ def findTape(contours, image, centerX, centerY, image2):
         sd.putNumber("tvec x", int(tvec[0][0]))
         sd.putNumber("tvec y", int(tvec[1][0]))
         sd.putNumber("tvec z", int(tvec[2][0]))
+        global tvecXSaved, tvecYSaved, tvecZSaved
+        tvecXSaved = np.append(tvecXSaved, tvec[0])
+        tvecYSaved = np.append(tvecYSaved, tvec[1])
+        tvecZSaved = np.append(tvecZSaved, tvec[2])
+        print("x",tvecXSaved)
+        print("y",tvecYSaved)
+        print("z",tvecZSaved)
         currentTime = time.time()
         currentRioTime = sd.getNumber("RioRuntime", "0")
         #print(currentRioTime)
@@ -497,7 +508,10 @@ while(True):
 	# Capture frame-by-frame
     #print("test2")
     ret, frame = cap.read()
-    frame2, _ = cap2.read()
+    if(cap2.isOpened()):
+        frame2, _ = cap2.read()
+    else:
+        ret, frame2 = cap.read()
     #print("test")
     frameAquiredTime = time.time()
 	#rio_frameAquiredTime = sd.getNumber("RioRuntime", "0")
@@ -532,10 +546,11 @@ while(True):
 
 	# Display the resulting frame
 
-	#Thread(target=findTape(contours, blur, (image_width/2)-0.5, (image_height/2)-0.5))	
+	#Thread(target=findTape(contours, blur, (image_width/2)-0.5, (image_height/2)-0.5))
     findTape(contours, blur, (image_width/2)-0.5, (image_height/2)-0.5, frame2)
-    
-    outputStream2.putFrame(frame2)
+
+    if(cap2.isOpened()):
+        outputStream2.putFrame(frame2)
 
 	#mask = cv2.resize(mask, (1280,720))
 	#blur = cv2.resize(blur, (1280,720))
