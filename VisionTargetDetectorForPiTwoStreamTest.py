@@ -23,6 +23,17 @@ tvecXSaved = np.array([0])
 tvecYSaved = np.array([0])
 tvecZSaved = np.array([0])
 
+# Calculate Homography
+# Both are image number 2
+# Source Points (Lifecam)
+srcCorners = np.float32([[340,311], [331,615], [767,633], [780,324]])
+# Destination Points (Picam)
+dstCorners = np.float32([[371,336], [367,583], [726,591], [730,346]])
+# Calculate Homography from Lifecam to Picam
+H, _ = cv2.findHomography(srcCorners, dstCorners)
+#print("ret", ret)
+print("homography", H)
+
 # Cal for pi cam is 720p
 
 mtx = None
@@ -43,6 +54,43 @@ dist = None
 # 640 by 360
 xFactor = 2
 yFactor = 2
+
+# Transformation for overlays
+xTrans = 22
+yTrans = -50
+sf = 0.9
+spacing = -10
+
+def findCentroid(x1, x2, x3, x4, y1, y2, y3, y4):
+    x = (x1 + x2 + x3 + x4) / 4
+    y = (y1 + y2 + y3 + y4) / 4
+    return x, y
+
+def transformAndScale(cx, cy, x, y, tx, ty, scale):
+    x = scale * (x - cx) + cx
+    y = scale * (y - cy) + cy
+    x = int(x + tx)
+    y = int(y + ty)
+    return x, y
+
+transformedP1x = 0
+transformedP1y = 0
+transformedP2x = 0
+transformedP2y = 0
+transformedP3x = 0
+transformedP3y = 0
+transformedP4x = 0
+transformedP4y = 0
+
+transformedBoxP1x = 0
+transformedBoxP1y = 0
+transformedBoxP2x = 0
+transformedBoxP2y = 0
+transformedBoxP3x = 0
+transformedBoxP3y = 0
+transformedBoxP4x = 0
+transformedBoxP4y = 0
+
 
 # init camera server and network tables
 logging.basicConfig(level=logging.DEBUG)
@@ -284,14 +332,21 @@ def findTape(contours, image, centerX, centerY, image2):
                         p2 = approx[1][0]
                         p3 = approx[2][0]
                         p4 = approx[3][0]
-                        cv2.line(blur, (p1[0],p1[1]), (p2[0],p2[1]), (255,255,255), 2)
+                        cv2.line(blur, (p1[0],p1[1]), (p2[0],p2[1]), (255,0,0), 2)
                         cv2.line(blur, (p2[0],p2[1]), (p3[0],p3[1]), (255,0,0), 2)
                         cv2.line(blur, (p3[0],p3[1]), (p4[0],p4[1]), (255,0,0), 2)
                         cv2.line(blur, (p4[0],p4[1]), (p1[0],p1[1]), (255,0,0), 2)
-                        cv2.line(frame2, (p1[0],p1[1]), (p2[0],p2[1]), (255,255,255), 2)
-                        cv2.line(frame2, (p2[0],p2[1]), (p3[0],p3[1]), (255,0,0), 2)
-                        cv2.line(frame2, (p3[0],p3[1]), (p4[0],p4[1]), (255,0,0), 2)
-                        cv2.line(frame2, (p4[0],p4[1]), (p1[0],p1[1]), (255,0,0), 2)
+                        centroidX, centroidY = findCentroid(p1[0],p2[0],p3[0],p4[0], p1[1], p2[1], p3[1], p4[1])
+                        
+                        transformedP1x, transformedP1y = transformAndScale(centroidX, centroidY, p1[0], p1[1], xTrans, yTrans, sf)
+                        transformedP2x, transformedP2y = transformAndScale(centroidX, centroidY, p2[0], p2[1], xTrans, yTrans, sf)
+                        transformedP3x, transformedP3y = transformAndScale(centroidX, centroidY, p3[0], p3[1], xTrans, yTrans, sf)
+                        transformedP4x, transformedP4y = transformAndScale(centroidX, centroidY, p4[0], p4[1], xTrans, yTrans, sf)
+                        
+                        cv2.line(frame2, (transformedP1x,transformedP1y), (transformedP2x,transformedP2y), (255,0,0), 2)
+                        cv2.line(frame2, (transformedP2x,transformedP2y), (transformedP3x,transformedP3y), (255,0,0), 2)
+                        cv2.line(frame2, (transformedP3x,transformedP3y), (transformedP4x,transformedP4y), (255,0,0), 2)
+                        cv2.line(frame2, (transformedP4x,transformedP4y), (transformedP1x,transformedP1y), (255,0,0), 2)
 
                     # Appends important info to array
                     if [cx, cy, rotation, cnt] not in biggestCnts:
@@ -351,7 +406,7 @@ def findTape(contours, image, centerX, centerY, image2):
 #        cv2.putText(image, "Yaw: " + str(finalTarget[1]), (40, 40), cv2.FONT_HERSHEY_COMPLEX, .6,
 #                    (255, 255, 255))
         cv2.line(image, (finalTarget[0], screenHeight), (finalTarget[0], 0), (255, 0, 0), 2)
-        cv2.line(image2, (finalTarget[0], screenHeight), (finalTarget[0], 0), (255, 0, 0), 2)
+        cv2.line(image2, (finalTarget[0] + xTrans, screenHeight), (finalTarget[0]  + xTrans, 0), (255, 0, 0), 2)
         
         currentAngleError = finalTarget[1]
         finalBox1 = finalTarget[2]
@@ -404,10 +459,52 @@ def findTape(contours, image, centerX, centerY, image2):
             cv2.line(image, (int(trihedronPoints[0][0][0]), int(trihedronPoints[0][0][1])), (int(trihedronPoints[1][0][0]), int(trihedronPoints[1][0][1])), (255,0,0), 3)
             cv2.line(image, (int(trihedronPoints[0][0][0]), int(trihedronPoints[0][0][1])), (int(trihedronPoints[2][0][0]), int(trihedronPoints[2][0][1])), (0,255,0), 3)
             cv2.line(image, (int(trihedronPoints[0][0][0]), int(trihedronPoints[0][0][1])), (int(trihedronPoints[3][0][0]), int(trihedronPoints[3][0][1])), (0,0,255), 3)
-            cv2.line(image2, (int(trihedronPoints[0][0][0]), int(trihedronPoints[0][0][1])), (int(trihedronPoints[1][0][0]), int(trihedronPoints[1][0][1])), (255,0,0), 3)
-            cv2.line(image2, (int(trihedronPoints[0][0][0]), int(trihedronPoints[0][0][1])), (int(trihedronPoints[2][0][0]), int(trihedronPoints[2][0][1])), (0,255,0), 3)
-            cv2.line(image2, (int(trihedronPoints[0][0][0]), int(trihedronPoints[0][0][1])), (int(trihedronPoints[3][0][0]), int(trihedronPoints[3][0][1])), (0,0,255), 3)
+            cv2.line(image2, (int(trihedronPoints[0][0][0] + xTrans), int(trihedronPoints[0][0][1]) + yTrans), (int(trihedronPoints[1][0][0] + xTrans), int(trihedronPoints[1][0][1]) + yTrans), (255,0,0), 3)
+            cv2.line(image2, (int(trihedronPoints[0][0][0] + xTrans), int(trihedronPoints[0][0][1]) + yTrans), (int(trihedronPoints[2][0][0] + xTrans), int(trihedronPoints[2][0][1]) + yTrans), (0,255,0), 3)
+            cv2.line(image2, (int(trihedronPoints[0][0][0] + xTrans), int(trihedronPoints[0][0][1]) + yTrans), (int(trihedronPoints[3][0][0] + xTrans), int(trihedronPoints[3][0][1]) + yTrans), (0,0,255), 3)
+        
+        cv2.line(blur, (corners[0][0][0],corners[0][0][1]), (corners[1][0][0],corners[1][0][1]), (0,0,255), 5)
+        cv2.line(blur, (corners[1][0][0],corners[1][0][1]), (corners[2][0][0],corners[2][0][1]), (0,0,255), 5)
+        cv2.line(blur, (corners[2][0][0],corners[2][0][1]), (corners[3][0][0],corners[3][0][1]), (0,0,255), 5)
+        cv2.line(blur, (corners[3][0][0],corners[3][0][1]), (corners[0][0][0],corners[0][0][1]), (0,0,255), 5)
+
+        boxCentroidX, boxCentroidY = findCentroid(corners[0][0][0],corners[1][0][0],corners[2][0][0],corners[3][0][0], corners[0][0][1],corners[1][0][1],corners[2][0][1],corners[3][0][1])
+
+        transformedBoxP1x, transformedBoxP1y = transformAndScale(boxCentroidX, boxCentroidY, corners[0][0][0], corners[0][0][1], xTrans, yTrans, sf)
+        transformedBoxP2x, transformedBoxP2y = transformAndScale(boxCentroidX, boxCentroidY, corners[1][0][0], corners[1][0][1], xTrans, yTrans, sf)
+        transformedBoxP3x, transformedBoxP3y = transformAndScale(boxCentroidX, boxCentroidY, corners[2][0][0], corners[2][0][1], xTrans, yTrans, sf)
+        transformedBoxP4x, transformedBoxP4y = transformAndScale(boxCentroidX, boxCentroidY, corners[3][0][0], corners[3][0][1], xTrans, yTrans, sf)
+
+#        boundingBox = np.zeros((360,360,3), np.uint8)
+#
+#        cv2.line(boundingBox, (transformedBoxP1x,transformedBoxP1y), (transformedBoxP2x,transformedBoxP2y), (0,0,255), 5)
+#        cv2.line(boundingBox, (transformedBoxP2x,transformedBoxP2y), (transformedBoxP3x,transformedBoxP3y), (0,0,255), 5)
+#        cv2.line(boundingBox, (transformedBoxP3x,transformedBoxP3y), (transformedBoxP4x,transformedBoxP4y), (0,0,255), 5)
+#        cv2.line(boundingBox, (transformedBoxP4x,transformedBoxP4y), (transformedBoxP1x,transformedBoxP1y), (0,0,255), 5)
+#
+#        cv2.warpPerspective(boundingBox, H, (360,640), boundingBox)
+#        print(boundingBox.shape[:2])
+#        print(frame2.shape[:2])
+#        global frame2
+#        frame2 = cv2.add(frame2, boundingBox)
+
+#        cv2.line(frame2, (transformedBoxP1x,transformedBoxP1y), (transformedBoxP2x,transformedBoxP2y), (0,0,255), 5)
+#        cv2.line(frame2, (transformedBoxP2x,transformedBoxP2y), (transformedBoxP3x,transformedBoxP3y), (0,0,255), 5)
+#        cv2.line(frame2, (transformedBoxP3x,transformedBoxP3y), (transformedBoxP4x,transformedBoxP4y), (0,0,255), 5)
+#        cv2.line(frame2, (transformedBoxP4x,transformedBoxP4y), (transformedBoxP1x,transformedBoxP1y), (0,0,255), 5)
         #print(retval)
+        
+        boundingBox = np.array([[[transformedBoxP1x,transformedBoxP1y], [transformedBoxP2x,transformedBoxP2y], [transformedBoxP3x,transformedBoxP3y], [transformedBoxP4x,transformedBoxP4y]]], np.float32)
+        print("bounding",boundingBox)
+        print(H)
+        cv2.perspectiveTransform(boundingBox, H, boundingBox)
+        print("bounding",boundingBox)
+        
+        cv2.line(frame2, (boundingBox[0][0][0],boundingBox[0][0][1]), (boundingBox[0][1][0],boundingBox[0][1][1]), (0,0,255), 5)
+        cv2.line(frame2, (boundingBox[0][1][0],boundingBox[0][1][1]), (boundingBox[0][2][0],boundingBox[0][2][1]), (0,0,255), 5)
+        cv2.line(frame2, (boundingBox[0][2][0],boundingBox[0][2][1]), (boundingBox[0][3][0],boundingBox[0][3][1]), (0,0,255), 5)
+        cv2.line(frame2, (boundingBox[0][3][0],boundingBox[0][3][1]), (boundingBox[0][0][0],boundingBox[0][0][1]), (0,0,255), 5)
+        
         rvec[0] = math.degrees(rvec[0])
         rvec[1] = math.degrees(rvec[1])
         rvec[2] = math.degrees(rvec[2])
@@ -445,9 +542,9 @@ def findTape(contours, image, centerX, centerY, image2):
         tvecXSaved = np.append(tvecXSaved, tvec[0])
         tvecYSaved = np.append(tvecYSaved, tvec[1])
         tvecZSaved = np.append(tvecZSaved, tvec[2])
-        print("x",tvecXSaved)
-        print("y",tvecYSaved)
-        print("z",tvecZSaved)
+        #print("x",tvecXSaved)
+        #print("y",tvecYSaved)
+        #print("z",tvecZSaved)
         currentTime = time.time()
         currentRioTime = sd.getNumber("RioRuntime", "0")
         #print(currentRioTime)
@@ -486,7 +583,7 @@ cap.set(4,360)
 Low_Exposure = True
 if(Low_Exposure):
 	cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
-	cap.set(cv2.CAP_PROP_EXPOSURE, 0.0001)
+	cap.set(cv2.CAP_PROP_EXPOSURE, 0.0003)
 else:
 	cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
 	cap.set(cv2.CAP_PROP_EXPOSURE, 0.1)
@@ -518,7 +615,7 @@ while(True):
 	#print(rio_frameAquiredTime)
     blur = cv2.blur(frame,(4,4), -1)
     hsv = cv2.cvtColor(blur, cv2.COLOR_BGR2HSV)
-    mask = cv2.inRange(hsv, np.array([60,50,40]), np.array([93,255,255]))
+    mask = cv2.inRange(hsv, np.array([50,50,40]), np.array([93,255,255]))
 	#_, contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_TC89_KCOS)
     _, contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     cv2.drawContours(blur, contours, -1, (0,255,0), 1)
@@ -547,7 +644,8 @@ while(True):
 	# Display the resulting frame
 
 	#Thread(target=findTape(contours, blur, (image_width/2)-0.5, (image_height/2)-0.5))
-    findTape(contours, blur, (image_width/2)-0.5, (image_height/2)-0.5, frame2)
+    Thread(target=findTape(contours, blur, (image_width/2)-0.5, (image_height/2)-0.5, frame2))
+#cv2.warpPerspective(frame2, H, (640,360), frame2)
 
     if(cap2.isOpened()):
         outputStream2.putFrame(frame2)
@@ -558,7 +656,7 @@ while(True):
     #for jetson
     #Thread(target=cv2.imshow('blur',blur))
     #Thread(target=cv2.imshow('frame',mask))
-    fps.update()
+    #fps.update()
     #cv2.waitKey(0)
 	#cv2.imshow('harris',dst)
     print("******************")
@@ -567,7 +665,7 @@ while(True):
 
 # When everything done, release the capture
 cap.release()
-fps.stop()
-print("[INFO] elasped time: {:.2f}".format(fps.elapsed()))
-print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
+#fps.stop()
+#print("[INFO] elasped time: {:.2f}".format(fps.elapsed()))
+#print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
 #cv2.destroyAllWindows()
