@@ -4,7 +4,7 @@ import cv2
 import time
 
 class CameraVideoStream:
-    def __init__(self, device_number=1):
+    def __init__(self, device_number=1, exposure=False):
 		# initialize the video camera stream and read the first frame
 		# from the stream
         self.stream = cv2.VideoCapture(device_number)
@@ -18,9 +18,13 @@ class CameraVideoStream:
 		# be stopped
         self.stopped = False
         self.timestamp = 0
+        self.exposure = exposure
 
     def start(self):
 		# start the thread to read frames from the video stream
+        if(self.exposure):
+            self.stream.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
+            self.stream.set(cv2.CAP_PROP_EXPOSURE, 0.0003)
         Thread(target=self.update, args=()).start()
         return self
 

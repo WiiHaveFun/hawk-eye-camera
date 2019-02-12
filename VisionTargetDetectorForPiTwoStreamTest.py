@@ -97,6 +97,7 @@ logging.basicConfig(level=logging.DEBUG)
 ip = "10.28.34.2"
 NetworkTables.initialize(server=ip)
 sd = NetworkTables.getTable("SmartDashboard")
+sd.putString("Reverse Cam Input?", "No")
 
 cs = cs.CameraServer.getInstance()
 outputStream = cs.putVideo("vision", 640, 360)
@@ -336,17 +337,17 @@ def findTape(contours, image, centerX, centerY, image2):
                         cv2.line(blur, (p2[0],p2[1]), (p3[0],p3[1]), (255,0,0), 2)
                         cv2.line(blur, (p3[0],p3[1]), (p4[0],p4[1]), (255,0,0), 2)
                         cv2.line(blur, (p4[0],p4[1]), (p1[0],p1[1]), (255,0,0), 2)
-                        centroidX, centroidY = findCentroid(p1[0],p2[0],p3[0],p4[0], p1[1], p2[1], p3[1], p4[1])
-                        
-                        transformedP1x, transformedP1y = transformAndScale(centroidX, centroidY, p1[0], p1[1], xTrans, yTrans, sf)
-                        transformedP2x, transformedP2y = transformAndScale(centroidX, centroidY, p2[0], p2[1], xTrans, yTrans, sf)
-                        transformedP3x, transformedP3y = transformAndScale(centroidX, centroidY, p3[0], p3[1], xTrans, yTrans, sf)
-                        transformedP4x, transformedP4y = transformAndScale(centroidX, centroidY, p4[0], p4[1], xTrans, yTrans, sf)
-                        
-                        cv2.line(frame2, (transformedP1x,transformedP1y), (transformedP2x,transformedP2y), (255,0,0), 2)
-                        cv2.line(frame2, (transformedP2x,transformedP2y), (transformedP3x,transformedP3y), (255,0,0), 2)
-                        cv2.line(frame2, (transformedP3x,transformedP3y), (transformedP4x,transformedP4y), (255,0,0), 2)
-                        cv2.line(frame2, (transformedP4x,transformedP4y), (transformedP1x,transformedP1y), (255,0,0), 2)
+#                        centroidX, centroidY = findCentroid(p1[0],p2[0],p3[0],p4[0], p1[1], p2[1], p3[1], p4[1])
+#
+#                        transformedP1x, transformedP1y = transformAndScale(centroidX, centroidY, p1[0], p1[1], xTrans, yTrans, sf)
+#                        transformedP2x, transformedP2y = transformAndScale(centroidX, centroidY, p2[0], p2[1], xTrans, yTrans, sf)
+#                        transformedP3x, transformedP3y = transformAndScale(centroidX, centroidY, p3[0], p3[1], xTrans, yTrans, sf)
+#                        transformedP4x, transformedP4y = transformAndScale(centroidX, centroidY, p4[0], p4[1], xTrans, yTrans, sf)
+#
+#                        cv2.line(frame2, (transformedP1x,transformedP1y), (transformedP2x,transformedP2y), (255,0,0), 2)
+#                        cv2.line(frame2, (transformedP2x,transformedP2y), (transformedP3x,transformedP3y), (255,0,0), 2)
+#                        cv2.line(frame2, (transformedP3x,transformedP3y), (transformedP4x,transformedP4y), (255,0,0), 2)
+#                        cv2.line(frame2, (transformedP4x,transformedP4y), (transformedP1x,transformedP1y), (255,0,0), 2)
 
                     # Appends important info to array
                     if [cx, cy, rotation, cnt] not in biggestCnts:
@@ -406,8 +407,8 @@ def findTape(contours, image, centerX, centerY, image2):
 #        cv2.putText(image, "Yaw: " + str(finalTarget[1]), (40, 40), cv2.FONT_HERSHEY_COMPLEX, .6,
 #                    (255, 255, 255))
         cv2.line(image, (finalTarget[0], screenHeight), (finalTarget[0], 0), (255, 0, 0), 2)
-        cv2.line(image2, (finalTarget[0] + xTrans, screenHeight), (finalTarget[0]  + xTrans, 0), (255, 0, 0), 2)
-        
+#        cv2.line(image2, (finalTarget[0] + xTrans, screenHeight), (finalTarget[0]  + xTrans, 0), (255, 0, 0), 2)
+
         currentAngleError = finalTarget[1]
         finalBox1 = finalTarget[2]
         finalBox2 = finalTarget[3]
@@ -459,21 +460,30 @@ def findTape(contours, image, centerX, centerY, image2):
             cv2.line(image, (int(trihedronPoints[0][0][0]), int(trihedronPoints[0][0][1])), (int(trihedronPoints[1][0][0]), int(trihedronPoints[1][0][1])), (255,0,0), 3)
             cv2.line(image, (int(trihedronPoints[0][0][0]), int(trihedronPoints[0][0][1])), (int(trihedronPoints[2][0][0]), int(trihedronPoints[2][0][1])), (0,255,0), 3)
             cv2.line(image, (int(trihedronPoints[0][0][0]), int(trihedronPoints[0][0][1])), (int(trihedronPoints[3][0][0]), int(trihedronPoints[3][0][1])), (0,0,255), 3)
-            cv2.line(image2, (int(trihedronPoints[0][0][0] + xTrans), int(trihedronPoints[0][0][1]) + yTrans), (int(trihedronPoints[1][0][0] + xTrans), int(trihedronPoints[1][0][1]) + yTrans), (255,0,0), 3)
-            cv2.line(image2, (int(trihedronPoints[0][0][0] + xTrans), int(trihedronPoints[0][0][1]) + yTrans), (int(trihedronPoints[2][0][0] + xTrans), int(trihedronPoints[2][0][1]) + yTrans), (0,255,0), 3)
-            cv2.line(image2, (int(trihedronPoints[0][0][0] + xTrans), int(trihedronPoints[0][0][1]) + yTrans), (int(trihedronPoints[3][0][0] + xTrans), int(trihedronPoints[3][0][1]) + yTrans), (0,0,255), 3)
-        
+#            cv2.line(image2, (int(trihedronPoints[0][0][0] + xTrans), int(trihedronPoints[0][0][1]) + yTrans), (int(trihedronPoints[1][0][0] + xTrans), int(trihedronPoints[1][0][1]) + yTrans), (255,0,0), 3)
+#            cv2.line(image2, (int(trihedronPoints[0][0][0] + xTrans), int(trihedronPoints[0][0][1]) + yTrans), (int(trihedronPoints[2][0][0] + xTrans), int(trihedronPoints[2][0][1]) + yTrans), (0,255,0), 3)
+#            cv2.line(image2, (int(trihedronPoints[0][0][0] + xTrans), int(trihedronPoints[0][0][1]) + yTrans), (int(trihedronPoints[3][0][0] + xTrans), int(trihedronPoints[3][0][1]) + yTrans), (0,0,255), 3)
+
         cv2.line(blur, (corners[0][0][0],corners[0][0][1]), (corners[1][0][0],corners[1][0][1]), (0,0,255), 5)
         cv2.line(blur, (corners[1][0][0],corners[1][0][1]), (corners[2][0][0],corners[2][0][1]), (0,0,255), 5)
         cv2.line(blur, (corners[2][0][0],corners[2][0][1]), (corners[3][0][0],corners[3][0][1]), (0,0,255), 5)
         cv2.line(blur, (corners[3][0][0],corners[3][0][1]), (corners[0][0][0],corners[0][0][1]), (0,0,255), 5)
 
-        boxCentroidX, boxCentroidY = findCentroid(corners[0][0][0],corners[1][0][0],corners[2][0][0],corners[3][0][0], corners[0][0][1],corners[1][0][1],corners[2][0][1],corners[3][0][1])
+#        boxCentroidX, boxCentroidY = findCentroid(corners[0][0][0],corners[1][0][0],corners[2][0][0],corners[3][0][0], corners[0][0][1],corners[1][0][1],corners[2][0][1],corners[3][0][1])
+#
+#        transformedBoxP1x, transformedBoxP1y = transformAndScale(boxCentroidX, boxCentroidY, corners[0][0][0], corners[0][0][1], xTrans, yTrans, sf)
+#        transformedBoxP2x, transformedBoxP2y = transformAndScale(boxCentroidX, boxCentroidY, corners[1][0][0], corners[1][0][1], xTrans, yTrans, sf)
+#        transformedBoxP3x, transformedBoxP3y = transformAndScale(boxCentroidX, boxCentroidY, corners[2][0][0], corners[2][0][1], xTrans, yTrans, sf)
+#        transformedBoxP4x, transformedBoxP4y = transformAndScale(boxCentroidX, boxCentroidY, corners[3][0][0], corners[3][0][1], xTrans, yTrans, sf)
 
-        transformedBoxP1x, transformedBoxP1y = transformAndScale(boxCentroidX, boxCentroidY, corners[0][0][0], corners[0][0][1], xTrans, yTrans, sf)
-        transformedBoxP2x, transformedBoxP2y = transformAndScale(boxCentroidX, boxCentroidY, corners[1][0][0], corners[1][0][1], xTrans, yTrans, sf)
-        transformedBoxP3x, transformedBoxP3y = transformAndScale(boxCentroidX, boxCentroidY, corners[2][0][0], corners[2][0][1], xTrans, yTrans, sf)
-        transformedBoxP4x, transformedBoxP4y = transformAndScale(boxCentroidX, boxCentroidY, corners[3][0][0], corners[3][0][1], xTrans, yTrans, sf)
+        transformedBoxP1x = corners[0][0][0]
+        transformedBoxP1y = corners[0][0][1]
+        transformedBoxP2x = corners[1][0][0]
+        transformedBoxP2y = corners[1][0][1]
+        transformedBoxP3x = corners[2][0][0]
+        transformedBoxP3y = corners[2][0][1]
+        transformedBoxP4x = corners[3][0][0]
+        transformedBoxP4y = corners[3][0][1]
 
 #        boundingBox = np.zeros((360,360,3), np.uint8)
 #
@@ -500,10 +510,11 @@ def findTape(contours, image, centerX, centerY, image2):
         cv2.perspectiveTransform(boundingBox, H, boundingBox)
         print("bounding",boundingBox)
         
-        cv2.line(frame2, (boundingBox[0][0][0],boundingBox[0][0][1]), (boundingBox[0][1][0],boundingBox[0][1][1]), (0,0,255), 5)
-        cv2.line(frame2, (boundingBox[0][1][0],boundingBox[0][1][1]), (boundingBox[0][2][0],boundingBox[0][2][1]), (0,0,255), 5)
-        cv2.line(frame2, (boundingBox[0][2][0],boundingBox[0][2][1]), (boundingBox[0][3][0],boundingBox[0][3][1]), (0,0,255), 5)
-        cv2.line(frame2, (boundingBox[0][3][0],boundingBox[0][3][1]), (boundingBox[0][0][0],boundingBox[0][0][1]), (0,0,255), 5)
+        if ((boundingBox[0][0][0] != boundingBox[0][1][0]) and (boundingBox[0][0][1] != boundingBox[0][1][1])) and ((boundingBox[0][2][0] != boundingBox[0][3][0]) and (boundingBox[0][2][1] != boundingBox[0][3][1])):
+            cv2.line(frame2, (boundingBox[0][0][0],boundingBox[0][0][1]), (boundingBox[0][1][0],boundingBox[0][1][1]), (0,0,255), 5)
+            cv2.line(frame2, (boundingBox[0][1][0],boundingBox[0][1][1]), (boundingBox[0][2][0],boundingBox[0][2][1]), (0,0,255), 5)
+            cv2.line(frame2, (boundingBox[0][2][0],boundingBox[0][2][1]), (boundingBox[0][3][0],boundingBox[0][3][1]), (0,0,255), 5)
+            cv2.line(frame2, (boundingBox[0][3][0],boundingBox[0][3][1]), (boundingBox[0][0][0],boundingBox[0][0][1]), (0,0,255), 5)
         
         rvec[0] = math.degrees(rvec[0])
         rvec[1] = math.degrees(rvec[1])
@@ -571,25 +582,27 @@ def findTape(contours, image, centerX, centerY, image2):
 
     return image
 
-cap = cv2.VideoCapture("/dev/video0")
+#cap = cv2.VideoCapture("/dev/video0")
+cap = CameraVideoStream("/dev/video0", True).start()
 #cap.set(3,1920)
 #cap.set(4,1080)
 #cap.set(3,1280)
 #cap.set(4,720)
-cap.set(3,640)
-cap.set(4,360)
+##cap.set(3,640)
+##cap.set(4,360)
 #cap.set(3,480)
 #cap.set(4,270)
-Low_Exposure = True
-if(Low_Exposure):
-	cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
-	cap.set(cv2.CAP_PROP_EXPOSURE, 0.0003)
-else:
-	cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
-	cap.set(cv2.CAP_PROP_EXPOSURE, 0.1)
+#Low_Exposure = True
+#if(Low_Exposure):
+#    cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
+#    cap.set(cv2.CAP_PROP_EXPOSURE, 0.0003)
+#else:
+#    cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
+#    cap.set(cv2.CAP_PROP_EXPOSURE, 0.1)
 
 #cap2 = cv2.VideoCapture("/dev/video1")
 cap2 = CameraVideoStream("/dev/video1").start()
+#cap2 = CameraVideoStream("/dev/v4l/by-id/usb-Microsoft_Microsoft®_LifeCam_HD-3000-video-index0").start()
 #cap.set(3,1920)
 #cap.set(4,1080)
 #cap.set(3,1280)
@@ -604,11 +617,43 @@ fps = FPS().start()
 while(True):
 	# Capture frame-by-frame
     #print("test2")
-    ret, frame = cap.read()
-    if(cap2.isOpened()):
-        frame2, _ = cap2.read()
+#    if (sd.getString("Reverse Cam Input?", "No") == "No") or (sd.getString("Reverse Cam Input?", "No") == "no"):
+#        ret, frame = cap.read()
+#        if(cap2.isOpened()):
+#            frame2, _ = cap2.read()
+#        else:
+#            ret, frame2 = cap.read()
+#    elif (sd.getString("Reverse Cam Input?", "No") == "Yes") or (sd.getString("Reverse Cam Input?", "No") == "yes"):
+#        frame, _ = cap2.read()
+#        if(cap.isOpened()):
+#            ret, frame2 = cap.read()
+#        else:
+#            frame, _ = cap2.read()
+#    else:
+#        ret, frame = cap.read()
+#        if(cap2.isOpened()):
+#            frame2, _ = cap2.read()
+#        else:
+#            ret, frame2 = cap.read()
+    if (sd.getString("Reverse Cam Input?", "No") == "No") or (sd.getString("Reverse Cam Input?", "No") == "no"):
+        frame, _ = cap.read()
+        if(cap2.isOpened()):
+            frame2, _ = cap2.read()
+        else:
+            frame2, _ = cap.read()
+    elif (sd.getString("Reverse Cam Input?", "No") == "Yes") or (sd.getString("Reverse Cam Input?", "No") == "yes"):
+        frame, _ = cap2.read()
+        if(cap.isOpened()):
+            frame2, _ = cap.read()
+        else:
+            frame, _ = cap2.read()
     else:
-        ret, frame2 = cap.read()
+        frame, _ = cap.read()
+        if(cap2.isOpened()):
+            frame2, _ = cap2.read()
+        else:
+            frame2, _ = cap.read()
+
     #print("test")
     frameAquiredTime = time.time()
 	#rio_frameAquiredTime = sd.getNumber("RioRuntime", "0")
