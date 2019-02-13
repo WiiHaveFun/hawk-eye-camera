@@ -48,7 +48,7 @@ class CameraVideoStream:
         return self.smallFrame, self.timestamp
 
     def isOpened(self):
-        return self.stream.isOpened()
+        return self.grabbed
  
     def stop(self):
 		# indicate that the thread should be stopped
